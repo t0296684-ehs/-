@@ -466,6 +466,7 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
     <div class="hdr-r">
       <div class="usage-pill" id="usagePill" onclick="goPg('settings')">✦ <span id="usageText">0/10</span></div>
       <div class="nbadge" id="nbadge">0</div>
+      <div onclick="doLogout()" style="width:32px;height:32px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0" title="登出">⏻</div>
     </div>
   </div>
   <div class="nav">
@@ -852,9 +853,38 @@ function init(){
   const savedAva=localStorage.getItem(SK.ava);
   setAvatar(savedAva||null);
 
-  // Check auth
-  if(session&&me){ showApp(); syncFromGAS(); }
-  else{ G("authScreen").classList.remove("hidden"); }
+  // Check auth - validate token with GAS before showing app
+  if(session&&me){
+    validateAndShowApp();
+  } else {
+    G("authScreen").classList.remove("hidden");
+  }
+}
+
+async function validateAndShowApp(){
+  try{
+    const r=await gPost({action:"getAll",token:session});
+    if(r&&r.code===401){
+      // Token expired or invalid - go to login
+      handleAuthExpiry();
+      return;
+    }
+    if(r&&r.success){
+      // Valid token - show app and update data
+      showApp();
+      local.todos=[...(r.todos||[]).map(t=>({...t,synced:true})),...(r.done||[]).map(t=>({...t,synced:true}))];
+      local.clients=(r.clients||[]).map(c=>({...c,synced:true}));
+      saveLocal();updateBadge();
+      setTimeout(()=>checkNotif(),800);
+    } else {
+      // GAS error but not 401 - show app with cached data
+      showApp();
+      setTimeout(()=>checkNotif(),800);
+    }
+  }catch(e){
+    // Network error - show app with cached data (offline mode)
+    showApp();
+  }
 }
 
 function setAvatar(src){
@@ -1024,11 +1054,14 @@ async function doResetPw(){
 
 function doLogout(){
   if(!confirm("確定要登出嗎？"))return;
-  localStorage.removeItem(SK.tok);localStorage.removeItem(SK.usr);
+  // Clear all session data
+  Object.values(SK).forEach(k=>localStorage.removeItem(k));
   session=null;me=null;
+  local={todos:[],done:[],clients:[]};
   G("appWrap").classList.add("hidden");
   G("authScreen").classList.remove("hidden");
   authTab("login");
+  toast("已登出","ok");
 }
 
 // ══════════════════════════════════════════════════════════════
