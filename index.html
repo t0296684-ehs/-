@@ -472,8 +472,8 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
     <div class="nb active" onclick="goPg('rec')"><span class="ni">✎</span>記錄</div>
     <div class="nb" onclick="goPg('list')"><span class="ni">☑</span>待辦</div>
     <div class="nb" onclick="goPg('remind')"><span class="ni">🔔</span>提醒<div class="dot-alert" id="remindDot"></div></div>
+    <div class="nb" onclick="goPg('history')"><span class="ni">🗂</span>歷史</div>
     <div class="nb" onclick="goPg('clients')"><span class="ni">◈</span>客戶</div>
-    <div class="nb" onclick="goPg('feedback')"><span class="ni">💬</span>回饋</div>
     <div class="nb" onclick="goPg('settings')"><span class="ni">⚙</span>設定</div>
   </div>
   <div class="scroll">
@@ -497,8 +497,12 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
         </div>
         <div class="pv" id="pv">
           <div class="pv-title">確認後儲存</div>
-          <div class="field"><label>客戶</label><select id="p_c"><option value="">（未指定）</option></select></div>
-          <div class="field"><label>聯絡人</label><input type="text" id="p_ct"></div>
+          <div class="field"><label>客戶</label><select id="p_c" onchange="autoFillContact('p_c','p_ct','p_ct_sel')"><option value="">（未指定）</option></select></div>
+          <div class="field" id="p_ct_wrap">
+            <label>聯絡人</label>
+            <select id="p_ct_sel" style="display:none" onchange="document.getElementById('p_ct').value=this.value"></select>
+            <input type="text" id="p_ct" placeholder="自動帶入或手動填寫">
+          </div>
           <div class="field"><label>事項 *</label><input type="text" id="p_t"></div>
           <div class="field"><label>優先度</label><select id="p_p"><option>高</option><option selected>中</option><option>低</option></select></div>
           <div class="field"><label>截止日</label><input type="date" id="p_d"></div>
@@ -517,7 +521,12 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
       <button class="add-btn" onclick="toggleQA()">直接填表新增（不耗 AI 次數）↓</button>
       <div class="add-form" id="qaForm">
         <div class="form-title">直接新增待辦</div>
-        <div class="field"><label>客戶</label><select id="qa_c"><option value="">（未指定）</option></select></div>
+        <div class="field"><label>客戶</label><select id="qa_c" onchange="autoFillContact('qa_c','qa_ct','qa_ct_sel')"><option value="">（未指定）</option></select></div>
+        <div class="field" id="qa_ct_wrap">
+          <label>聯絡人</label>
+          <select id="qa_ct_sel" style="display:none" onchange="document.getElementById('qa_ct').value=this.value"></select>
+          <input type="text" id="qa_ct" placeholder="自動帶入">
+        </div>
         <div class="field"><label>事項 *</label><input type="text" id="qa_t"></div>
         <div class="field"><label>優先度</label><select id="qa_p"><option>高</option><option selected>中</option><option>低</option></select></div>
         <div class="field"><label>截止日</label><input type="date" id="qa_d"></div>
@@ -563,6 +572,18 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
       <div id="remindCt"></div>
     </div>
 
+    <!-- HISTORY -->
+    <div class="pg" id="pg-history">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+        <div style="font-size:11px;color:var(--ink2)">已完成 <span id="histCount" style="font-weight:700;color:var(--grn)">0</span> 筆</div>
+        <div style="display:flex;gap:6px">
+          <div class="chip active" id="hist-done-chip" onclick="setHistFilter('done',this)" style="font-size:10px;padding:4px 10px">已完成</div>
+          <div class="chip" id="hist-del-chip" onclick="setHistFilter('deleted',this)" style="font-size:10px;padding:4px 10px">已刪除</div>
+        </div>
+      </div>
+      <div id="historyCt"></div>
+    </div>
+
     <!-- CLIENTS -->
     <div class="pg" id="pg-clients">
       <div class="upload-area" onclick="document.getElementById('fileInput').click()">
@@ -573,14 +594,32 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
       </div>
       <button class="add-btn" onclick="toggleCC()">＋ 手動新增客戶</button>
       <div class="add-form" id="ccForm">
-        <div class="form-title">新增客戶</div>
+        <div class="form-title" id="ccFormTitle">新增客戶</div>
+        <input type="hidden" id="nc_edit_id">
         <div class="field"><label>公司全名 *</label><input type="text" id="nc_n" placeholder="請填寫完整公司名稱"></div>
-        <div class="field"><label>承辦姓名 *</label><input type="text" id="nc_c"></div>
-        <div class="field"><label>承辦電話 *</label><input type="tel" id="nc_ph"></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:10px;font-weight:800;color:var(--warm);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">承辦人（可新增多位）</div>
+          <div id="contactList"></div>
+          <button onclick="addContactRow()" style="width:100%;padding:7px;background:none;border:1px dashed var(--border2);border-radius:8px;color:var(--warm);font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;margin-top:4px">＋ 新增承辦人</button>
+        </div>
         <div class="field"><label>公司地址</label><input type="text" id="nc_addr" placeholder="台北市...（導航用）"></div>
-        <div class="field"><label>服務類別</label><input type="text" id="nc_cat"></div>
-        <div class="field"><label>合約到期</label><input type="date" id="nc_exp"></div>
-        <div class="pv-btns"><button class="btn-S" onclick="saveClient()">儲存</button><button class="btn-Gh" onclick="toggleCC()">取消</button></div>
+        <div class="field"><label>Email</label><input type="email" id="nc_email" placeholder="公司 Email"></div>
+        <div class="field"><label>服務類別</label><input type="text" id="nc_cat" placeholder="廢水/廢液/合約類型..."></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:10px;font-weight:800;color:var(--warm);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">合約（可新增多份）</div>
+          <div id="contractList"></div>
+          <button onclick="addContractRow()" style="width:100%;padding:7px;background:none;border:1px dashed var(--border2);border-radius:8px;color:var(--warm);font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;margin-top:4px">＋ 新增合約</button>
+        </div>
+        <div class="field"><label>備註</label><input type="text" id="nc_note" placeholder="其他資訊..."></div>
+        <div class="pv-btns">
+          <button class="btn-S" onclick="saveClient()" id="ccSaveBtn">儲存客戶</button>
+          <button class="btn-Gh" onclick="closeCC()">取消</button>
+        </div>
+      </div>
+
+      <!-- CSV 下載範本 -->
+      <div style="text-align:center;margin-bottom:10px">
+        <a onclick="downloadCSVTemplate()" style="font-size:12px;color:var(--warm);cursor:pointer;text-decoration:underline">📥 下載 CSV 匯入範本</a>
       </div>
       <div id="clientCt"></div>
     </div>
@@ -1058,17 +1097,22 @@ function updateUsageUI(){
 // ══════════════════════════════════════════════════════════════
 let gcalEnabled=true;
 
-function makeGCalURL(task,deadline,note){
-  // Google Calendar event URL (no OAuth needed)
+function makeGCalURL(task,deadline,note,priority){
   const base="https://calendar.google.com/calendar/render?action=TEMPLATE";
-  const title=encodeURIComponent("[小恩] "+task);
-  const details=encodeURIComponent(note||"由小恩系統自動加入");
+  // Title: "待辦：事項名稱"，不含日期
+  const title=encodeURIComponent("待辦："+task);
+  const details=encodeURIComponent((note?"備註："+note+"
+
+":"")+"由小恩系統記錄
+優先度："+({高:"🔴 高優先",中:"🟡 中優先",低:"⚪ 低優先"}[priority]||""));
   let url=base+"&text="+title+"&details="+details;
   if(deadline){
-    // Convert YYYY-MM-DD to YYYYMMDD
     const d=deadline.replace(/-/g,"");
     url+="&dates="+d+"T090000/"+d+"T100000";
   }
+  // Color: high=red(11), medium=orange(6), low=blue(9)
+  const colorId={高:"11",中:"6",低:"9"}[priority]||"9";
+  url+="&color="+colorId;
   return url;
 }
 
@@ -1160,7 +1204,7 @@ async function confirmSave(){
   }catch{toast("已存本機，網路異常","ok");}
   // Auto calendar push if enabled
   if(swState["sw-gcal"]&&item.deadline){
-    const calUrl=makeGCalURL(item.task,item.dueDate||item.deadline,item.note);
+    const calUrl=makeGCalURL(item.task,item.dueDate||item.deadline,item.note,item.priority);
     setTimeout(()=>{
       if(confirm("要加入 Google 行事曆嗎？")){window.open(calUrl,"_blank");}
     },400);
@@ -1184,10 +1228,13 @@ async function qaSave(){
 // ══════════════════════════════════════════════════════════════
 function goPg(name){
   document.querySelectorAll(".pg").forEach(e=>e.classList.remove("active"));
-  document.querySelectorAll(".nb").forEach((e,i)=>e.classList.toggle("active",["rec","list","remind","clients","feedback","settings"][i]===name));
-  G("pg-"+name).classList.add("active");
+  document.querySelectorAll(".nb").forEach((e,i)=>e.classList.toggle("active",["rec","list","remind","history","clients","settings"][i]===name));
+  const pg=G("pg-"+name);
+  if(!pg)return;
+  pg.classList.add("active");
   if(name==="list")renderList();
   if(name==="remind")renderRemind();
+  if(name==="history")renderHistory();
   if(name==="clients")renderClients();
   if(name==="settings"){renderSettings();buildThemeGrid();}
 }
@@ -1496,6 +1543,363 @@ function toast(m,t="ok"){const e=G("toast");e.textContent=m;e.className="toast s
 // ══════════════════════════════════════════════════════════════
 //  STARTUP
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+//  AUTO-FILL CONTACT
+// ══════════════════════════════════════════════════════════════
+function autoFillContact(clientSelId, contactInputId, contactSelId){
+  const clientName=G(clientSelId).value;
+  const ci=local.clients.find(c=>c.companyName===clientName);
+  const input=G(contactInputId);
+  const sel=G(contactSelId);
+  if(!ci){if(input)input.value="";if(sel)sel.style.display="none";return;}
+  const contacts=ci.contacts||[];
+  if(contacts.length===0){
+    // single contact from old format
+    const single=ci.contactName||"";
+    if(input)input.value=single;
+    if(sel)sel.style.display="none";
+  } else if(contacts.length===1){
+    if(input)input.value=contacts[0].name||"";
+    if(sel)sel.style.display="none";
+  } else {
+    // multiple contacts - show dropdown
+    if(sel){
+      sel.innerHTML=contacts.map(c=>`<option value="${c.name}">${c.name}${c.phone?" ("+c.phone+")":""}</option>`).join("");
+      sel.style.display="block";
+      if(input)input.value=contacts[0].name||"";
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CLIENT FORM - multi-contact, multi-contract
+// ══════════════════════════════════════════════════════════════
+let editingClientId=null;
+
+function toggleCC(){
+  const form=G("ccForm");
+  if(form.classList.contains("open")){
+    closeCC();
+  }else{
+    editingClientId=null;
+    G("ccFormTitle").textContent="新增客戶";
+    G("ccSaveBtn").textContent="儲存客戶";
+    G("nc_edit_id").value="";
+    ["nc_n","nc_addr","nc_email","nc_cat","nc_note"].forEach(id=>S(id,""));
+    G("contactList").innerHTML="";
+    G("contractList").innerHTML="";
+    addContactRow(); addContractRow();
+    form.classList.add("open");
+  }
+}
+
+function closeCC(){
+  G("ccForm").classList.remove("open");
+  editingClientId=null;
+}
+
+function addContactRow(name="",phone=""){
+  const wrap=document.createElement("div");
+  wrap.className="contact-row";
+  wrap.style.cssText="display:flex;gap:6px;margin-bottom:6px;align-items:center";
+  wrap.innerHTML=`<input type="text" placeholder="姓名" value="${name}" style="flex:1" class="contact-name">
+    <input type="tel" placeholder="電話" value="${phone}" style="flex:1" class="contact-phone">
+    <div onclick="this.parentElement.remove()" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3);font-size:16px;flex-shrink:0">✕</div>`;
+  G("contactList").appendChild(wrap);
+}
+
+function addContractRow(title="",exp=""){
+  const wrap=document.createElement("div");
+  wrap.className="contract-row";
+  wrap.style.cssText="display:flex;gap:6px;margin-bottom:6px;align-items:center";
+  wrap.innerHTML=`<input type="text" placeholder="合約名稱/編號" value="${title}" style="flex:1" class="contract-title">
+    <input type="date" value="${exp}" style="flex:1" class="contract-exp">
+    <div onclick="this.parentElement.remove()" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3);font-size:16px;flex-shrink:0">✕</div>`;
+  G("contractList").appendChild(wrap);
+}
+
+function gatherContacts(){
+  return [...document.querySelectorAll(".contact-row")].map(row=>({
+    name:row.querySelector(".contact-name")?.value?.trim()||"",
+    phone:row.querySelector(".contact-phone")?.value?.trim()||""
+  })).filter(c=>c.name);
+}
+
+function gatherContracts(){
+  return [...document.querySelectorAll(".contract-row")].map(row=>({
+    title:row.querySelector(".contract-title")?.value?.trim()||"",
+    exp:row.querySelector(".contract-exp")?.value||""
+  })).filter(c=>c.title||c.exp);
+}
+
+function editClient(id){
+  const c=local.clients.find(c=>c.id===id);if(!c)return;
+  editingClientId=id;
+  G("ccFormTitle").textContent="編輯客戶";
+  G("ccSaveBtn").textContent="儲存修改";
+  G("nc_edit_id").value=id;
+  S("nc_n",c.companyName||"");
+  S("nc_addr",c.address||"");
+  S("nc_email",c.email||"");
+  S("nc_cat",c.categoryNote||"");
+  S("nc_note",c.note||"");
+  // contacts
+  G("contactList").innerHTML="";
+  const contacts=c.contacts||[{name:c.contactName||"",phone:c.phone||""}];
+  contacts.forEach(ct=>addContactRow(ct.name,ct.phone));
+  // contracts
+  G("contractList").innerHTML="";
+  const contracts=c.contracts||[{title:"主合約",exp:c.contractEnd||""}];
+  contracts.forEach(ct=>addContractRow(ct.title,ct.exp));
+  G("ccForm").classList.add("open");
+  G("ccForm").scrollIntoView({behavior:"smooth"});
+}
+
+// Override saveClient
+async function saveClient(){
+  const name=V("nc_n");
+  if(!name){toast("請填寫公司名稱","err");return;}
+  const contacts=gatherContacts();
+  const contracts=gatherContracts();
+  const primaryContact=contacts[0]||{};
+  const primaryContract=contracts[0]||{};
+
+  if(editingClientId){
+    // Edit existing
+    const idx=local.clients.findIndex(c=>c.id===editingClientId);
+    if(idx>=0){
+      local.clients[idx]={
+        ...local.clients[idx],
+        companyName:name,address:V("nc_addr"),email:V("nc_email"),
+        categoryNote:V("nc_cat"),note:V("nc_note"),
+        contactName:primaryContact.name||"",phone:primaryContact.phone||"",
+        contractEnd:primaryContract.exp||"",
+        contacts,contracts,synced:false
+      };
+      saveLocal();
+      try{await gPost({action:"addClient",token:session,data:{...local.clients[idx]}});}catch{}
+      closeCC();renderClients();toast("✓ 客戶資料已更新","ok");
+    }
+    return;
+  }
+
+  // New client
+  const c={
+    id:"C"+Date.now(),companyName:name,
+    contactName:primaryContact.name||"",phone:primaryContact.phone||"",
+    address:V("nc_addr"),email:V("nc_email"),
+    categoryNote:V("nc_cat"),note:V("nc_note"),
+    contractEnd:primaryContract.exp||"",
+    contacts,contracts,synced:false
+  };
+  local.clients.push(c);saveLocal();
+  try{
+    const r=await gPost({action:"addClient",token:session,data:{...c}});
+    if(r.success){local.clients[local.clients.length-1].synced=true;local.clients[local.clients.length-1].id=r.id;saveLocal();}
+  }catch{}
+  closeCC();["nc_n","nc_addr","nc_email","nc_cat","nc_note"].forEach(id=>S(id,""));
+  renderClients();toast("✓ 客戶已新增","ok");
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CSV TEMPLATE DOWNLOAD
+// ══════════════════════════════════════════════════════════════
+function downloadCSVTemplate(){
+  const csv="公司名稱,聯絡人,電話,地址,Email,服務類別,合約到期日
+順昌工業股份有限公司,李小華,0933-222-111,桃園市中壢區環保路88號,service@sunchang.com,廢液,2025-12-31
+王老闆化工有限公司,王志明,02-2345-6789,新北市板橋區中山路100號,,廢水、廢液,2025-06-30";
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="小恩客戶名單範本.csv";
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HISTORY PAGE
+// ══════════════════════════════════════════════════════════════
+let histFilter="done";
+
+function setHistFilter(f,el){
+  histFilter=f;
+  document.querySelectorAll("#pg-history .chip").forEach(c=>c.classList.remove("active"));
+  el.classList.add("active");
+  renderHistory();
+}
+
+function renderHistory(){
+  const items=local.todos.filter(t=>histFilter==="done"?t.status==="已完成":t.status==="已刪除");
+  // Sort by completion/deletion time desc
+  items.sort((a,b)=>(b.completedAt||b.deletedAt||b.timestamp||"").localeCompare(a.completedAt||a.deletedAt||a.timestamp||""));
+  G("histCount").textContent=items.length;
+
+  if(!items.length){
+    G("historyCt").innerHTML=`<div class="empty"><div class="ei">${histFilter==="done"?"🎉":"🗑"}</div><p>${histFilter==="done"?"尚無完成紀錄":"尚無刪除紀錄"}</p></div>`;
+    return;
+  }
+
+  G("historyCt").innerHTML=items.map(t=>{
+    const pT={高:"t-h",中:"t-m",低:"t-l"}[t.priority]||"t-l";
+    const timeLabel=histFilter==="done"
+      ?`完成 ${(t.completedAt||"").slice(0,16)}${t.elapsed?" · "+t.elapsed:""}`
+      :`刪除 ${(t.deletedAt||t.timestamp||"").slice(0,10)}`;
+    return `<div class="ti done" style="opacity:1">
+      <div class="ps"></div>
+      <div class="ti-top">
+        <div class="ti-l">
+          ${t.client?`<div class="ti-client">◈ ${t.client}${t.contact?" · "+t.contact:""}</div>`:""}
+          <div class="ti-task">${t.task}</div>
+        </div>
+        <div class="ti-acts">
+          <div class="act" title="復原" onclick="restoreItem('${t.id}')" style="font-size:11px;color:var(--grn)">↩</div>
+        </div>
+      </div>
+      <div class="ti-meta"><span class="tag ${pT}">${{高:"高",中:"中",低:"低"}[t.priority]||"—"}優先</span>${t.category?`<span class="tag t-cat">${t.category}</span>`:""}</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;font-family:'DM Mono',monospace">${timeLabel}</div>
+    </div>`;
+  }).join("");
+}
+
+async function restoreItem(id){
+  const t=local.todos.find(i=>i.id===id);if(!t)return;
+  const prev=t.status;
+  t.status="待辦";delete t.completedAt;delete t.deletedAt;
+  saveLocal();renderHistory();updateBadge();
+  toast("↩ 已復原","ok");
+  try{await gPost({action:"updateTodo",token:session,id,data:{status:"待辦"}});}catch{}
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER CLIENTS - updated with edit button + multi-contract display
+// ══════════════════════════════════════════════════════════════
+function renderClients(){
+  rebuildClientSel("p_c","");rebuildClientSel("qa_c","");
+  const ct=G("clientCt");
+  if(!local.clients.length){ct.innerHTML=`<div class="empty"><div class="ei">◈</div><p>尚無客戶資料<br><span style="font-size:12px">點上方「新增客戶」或上傳 CSV</span></p></div>`;return;}
+  ct.innerHTML=local.clients.map(c=>{
+    const contacts=c.contacts||[{name:c.contactName||"",phone:c.phone||""}];
+    const contracts=c.contracts||[{title:"合約",exp:c.contractEnd||""}];
+    const today_s=TODAY.toISOString().slice(0,10);
+    const isIOSc=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    const mapsBaseC=isIOSc?"https://maps.apple.com/?q=":"https://maps.google.com/?q=";
+    const cNavHtml=c.address?`<a class="nav-btn" href="${mapsBaseC}${encodeURIComponent(c.address)}" target="_blank" style="display:inline-flex">🗺 導航</a>`:"";
+
+    // Contract status badges
+    const contractBadges=contracts.filter(ct=>ct.exp).map(ct=>{
+      const sc=ct.exp<today_s?"t-ovr":ct.exp<new Date(TODAY.getTime()+14*86400000).toISOString().slice(0,10)?"t-m":"t-l";
+      const sl=ct.exp<today_s?"已過期":ct.exp<new Date(TODAY.getTime()+14*86400000).toISOString().slice(0,10)?"即將到期":"有效";
+      return `<span class="tag ${sc}">${ct.title?ct.title+": ":""}${sl} ${ct.exp}</span>`;
+    }).join("");
+
+    // All contacts with call buttons
+    const contactRows=contacts.filter(ct=>ct.name).map(ct=>{
+      const callHtml=ct.phone?`<a class="call-btn" href="tel:${ct.phone.replace(/[^0-9+]/g,"")}" style="display:inline-flex">📞 打給 ${ct.name}</a>`:"";
+      return `<span style="font-size:12px;color:var(--ink2)">👤 ${ct.name}</span>${callHtml}`;
+    }).join("");
+
+    return `<div class="cc">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div class="cc-name">${c.companyName}</div>
+        <button onclick="editClient('${c.id}')" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--ink2);cursor:pointer;font-family:'Noto Sans TC',sans-serif;flex-shrink:0;margin-left:8px">✏ 編輯</button>
+      </div>
+      ${c.address?`<div style="font-size:11px;color:var(--ink3);margin-bottom:5px">📍 ${c.address}</div>`:""}
+      <div class="cc-row" style="flex-wrap:wrap;gap:6px">${contactRows}${cNavHtml}</div>
+      <div class="cc-meta">${c.categoryNote?`<span class="tag t-cat">${c.categoryNote}</span>`:""}${contractBadges}</div>
+      ${c.note?`<div style="font-size:11px;color:var(--ink3);margin-top:5px;padding-top:5px;border-top:1px solid var(--border)">${c.note}</div>`:""}
+    </div>`;
+  }).join("");
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MARK DONE / DELETE - updated with history tracking
+// ══════════════════════════════════════════════════════════════
+async function markDone(id){
+  const t=local.todos.find(i=>i.id===id);if(!t)return;
+  t.status="已完成";t.completedAt=fmtNow();
+  saveLocal();updateBadge();renderList();
+  try{const r=await gPost({action:"completeTodo",token:session,id});if(r.success){t.elapsed=r.elapsed;saveLocal();}}catch{}
+  toast("✓ 已完成！","ok");
+  if(swState["sw-gcal"]&&(t.deadline||t.dueDate)){
+    const calUrl=makeGCalURL(t.task,t.dueDate||t.deadline,t.note,t.priority);
+    setTimeout(()=>{if(confirm("要加入 Google 行事曆嗎？"))window.open(calUrl,"_blank");},400);
+  }
+}
+
+async function delItem(id){
+  if(!confirm("確定刪除這筆紀錄？
+（可在「歷史」頁面復原）"))return;
+  const t=local.todos.find(i=>i.id===id);if(!t)return;
+  t.status="已刪除";t.deletedAt=fmtNow();
+  saveLocal();updateBadge();renderList();
+  try{await gPost({action:"deleteTodo",token:session,id});}catch{}
+  toast("已刪除（歷史頁可復原）","ok");
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ANALYTICS (效率分析)
+// ══════════════════════════════════════════════════════════════
+function renderAnalytics(){
+  const done=local.todos.filter(t=>t.status==="已完成");
+  const pending=local.todos.filter(t=>t.status==="待辦");
+  const month=TODAY.toISOString().slice(0,7);
+  const monthDone=done.filter(t=>(t.completedAt||"").slice(0,7)===month);
+
+  // Completion rate
+  const total=done.length+pending.length;
+  const rate=total>0?Math.round(done.length/total*100):0;
+
+  // Avg time to complete (days)
+  const withTime=done.filter(t=>t.timestamp&&t.completedAt);
+  const avgDays=withTime.length>0
+    ?(withTime.reduce((s,t)=>{
+        const diff=(new Date(t.completedAt)-new Date(t.timestamp))/86400000;
+        return s+diff;
+      },0)/withTime.length).toFixed(1)
+    :"-";
+
+  // High priority completion rate
+  const hiDone=done.filter(t=>t.priority==="高").length;
+  const hiTotal=done.filter(t=>t.priority==="高").length+pending.filter(t=>t.priority==="高").length;
+  const hiRate=hiTotal>0?Math.round(hiDone/hiTotal*100):0;
+
+  G("analyticsCt").innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px">
+      <div class="sc"><div class="sn" style="color:var(--pri)">${rate}%</div><div class="sl">整體完成率</div></div>
+      <div class="sc"><div class="sn" style="color:var(--grn)">${monthDone.length}</div><div class="sl">本月完成</div></div>
+      <div class="sc"><div class="sn" style="color:var(--blu)">${avgDays}</div><div class="sl">平均完成天數</div></div>
+      <div class="sc"><div class="sn" style="color:var(--coral)">${hiRate}%</div><div class="sl">高優先完成率</div></div>
+    </div>
+    ${pending.filter(t=>t.priority==="高").length>0?`<div style="background:var(--coral2);border-radius:9px;padding:9px 12px;font-size:12px;color:var(--coral)">⚠️ 目前有 <b>${pending.filter(t=>t.priority==="高").length} 件</b>高優先待辦未完成</div>`:""}`;
+
+  // Client health
+  const clientHealth=local.clients.map(c=>{
+    const cTodos=local.todos.filter(t=>t.client===c.companyName&&t.status==="待辦");
+    const overdue=cTodos.filter(t=>daysLeft(t.deadline)<0).length;
+    const contracts=c.contracts||[{exp:c.contractEnd}];
+    const expiring=contracts.filter(ct=>ct.exp&&daysLeft(ct.exp)<=30&&daysLeft(ct.exp)>=0).length;
+    let health="healthy",label="正常",color="var(--grn)";
+    if(overdue>0||expiring>0){health="warning";label=`注意${overdue>0?" · "+overdue+"件逾期":""}${expiring>0?" · 合約快到期":""}`;color="var(--coral)";}
+    return{...c,health,label,color,overdue,expiring};
+  }).sort((a,b)=>b.overdue-a.overdue);
+
+  G("clientHealthCt").innerHTML=clientHealth.length?clientHealth.map(c=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+      <div style="flex:1;font-size:13px;font-weight:${c.health==="warning"?"700":"400"}">${c.companyName}</div>
+      <div style="font-size:11px;color:${c.color}">${c.label}</div>
+    </div>`).join(""):`<div style="font-size:12px;color:var(--ink3);text-align:center;padding:16px">新增客戶後可查看健康度</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  UPDATE renderSettings to call renderAnalytics
+// ══════════════════════════════════════════════════════════════
+const _origRenderSettings=renderSettings;
+function renderSettings(){
+  _origRenderSettings();
+  renderAnalytics();
+}
+
 setupOTP("otp-box");
 setupOTP("reset-box");
 document.getElementById("qi").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.ctrlKey)doAI();});
