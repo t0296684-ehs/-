@@ -1513,7 +1513,7 @@ function setBL(id,on,label){
     const defaults={"loginBtn":"登入","registerBtn":"建立帳號","forgotBtn":"寄送驗證碼","resetBtn":"確認重設密碼","otpBtn":"驗證並完成註冊"};
     if(defaults[id])b.textContent=defaults[id];
   }
-}}
+}
 function authErr(m){const e=G("authErr");e.textContent=m;e.classList.add("show");G("authOk").classList.remove("show");}
 function authOk(m){const e=G("authOk");e.textContent=m;e.classList.add("show");G("authErr").classList.remove("show");}
 function toast(m,t="ok"){const e=G("toast");e.textContent=m;e.className="toast show "+t;setTimeout(()=>e.className="toast",2600);}
