@@ -334,7 +334,7 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
           <input id="l_p" name="password" type="password" placeholder="密碼" autocomplete="current-password">
         </div>
         <!-- 隱藏的 submit button 讓 Enter 和密碼管理器能觸發 -->
-        <button type="submit" class="btn-P">登入</button>
+        <button type="submit" id="loginBtn" class="btn-P">登入</button>
       </form>
       <div class="auth-link"><a onclick="authTab('forgot')">忘記密碼？</a></div>
       <div class="auth-hint-line" style="color:var(--ink3)">帳號或 Email 皆可登入</div>
@@ -363,7 +363,7 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
           <label class="fl" for="r_p2">確認密碼 *</label>
           <input id="r_p2" type="password" placeholder="再輸入一次" autocomplete="new-password">
         </div>
-        <button type="submit" class="btn-P">建立帳號</button>
+        <button type="submit" id="registerBtn" class="btn-P">建立帳號</button>
       </form>
     </div>
     </div><!-- end auth-panels -->
@@ -392,7 +392,7 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
           <label class="fl" for="fp_e">Email</label>
           <input id="fp_e" type="email" placeholder="你的 Email" autocomplete="email">
         </div>
-        <button type="submit" class="btn-P">寄送驗證碼</button>
+        <button type="submit" id="forgotBtn" class="btn-P">寄送驗證碼</button>
       </form>
       <div class="auth-link"><a onclick="authTab('login')">← 返回登入</a></div>
     </div>
@@ -417,7 +417,7 @@ select.rs-sel{padding:6px 10px;border:1px solid var(--border);border-radius:9px;
           <label class="fl" for="rp_p2">確認新密碼</label>
           <input id="rp_p2" type="password" placeholder="再輸入一次" autocomplete="new-password">
         </div>
-        <button type="submit" class="btn-P">確認重設密碼</button>
+        <button type="submit" id="resetBtn" class="btn-P">確認重設密碼</button>
       </form>
       <div class="auth-link"><a onclick="authTab('login')">← 返回登入</a></div>
     </div>
@@ -961,7 +961,7 @@ async function doLogin(){
       localStorage.setItem(SK.usr,JSON.stringify(me));
       showApp();syncFromGAS();
     }else{authErr(r.error||"登入失敗");}
-  }catch(e){authErr("連線失敗，請確認網路或 GAS URL 設定");}
+  }catch(e){console.error("Login error:",e);authErr(e.message||"連線失敗，請確認網路");}
   finally{setBL("loginBtn",false,"登入");}
 }
 
@@ -1467,11 +1467,22 @@ function handleAuthExpiry(){
 // ══════════════════════════════════════════════════════════════
 async function gPost(body){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000); // 15秒 timeout
+  const timer=setTimeout(()=>controller.abort(),15000);
   try{
-    const r=await fetch(GAS_URL,{method:"POST",body:JSON.stringify(body),signal:controller.signal});
+    const r=await fetch(GAS_URL,{
+      method:"POST",
+      redirect:"follow",
+      body:JSON.stringify(body),
+      signal:controller.signal
+    });
     clearTimeout(timer);
-    return r.json();
+    const text=await r.text();
+    try{return JSON.parse(text);}
+    catch(e){
+      // GAS returned non-JSON (e.g. HTML error page)
+      console.error("GAS non-JSON response:",text.slice(0,200));
+      throw new Error("伺服器回應格式錯誤");
+    }
   }catch(e){
     clearTimeout(timer);
     throw e;
@@ -1493,7 +1504,16 @@ function updateBadge(){
   G("remindDot").style.display=a?"block":"none";
 }
 function fmtNow(){return new Date().toISOString().replace("T"," ").slice(0,19);}
-function setBL(id,on,label){const b=G(id);if(b){b.disabled=on;if(label)b.textContent=label;}}
+function setBL(id,on,label){
+  const b=G(id);if(!b)return;
+  b.disabled=on;
+  if(label)b.textContent=label;
+  if(!on&&!label){
+    // Restore default labels
+    const defaults={"loginBtn":"登入","registerBtn":"建立帳號","forgotBtn":"寄送驗證碼","resetBtn":"確認重設密碼","otpBtn":"驗證並完成註冊"};
+    if(defaults[id])b.textContent=defaults[id];
+  }
+}}
 function authErr(m){const e=G("authErr");e.textContent=m;e.classList.add("show");G("authOk").classList.remove("show");}
 function authOk(m){const e=G("authOk");e.textContent=m;e.classList.add("show");G("authErr").classList.remove("show");}
 function toast(m,t="ok"){const e=G("toast");e.textContent=m;e.className="toast show "+t;setTimeout(()=>e.className="toast",2600);}
