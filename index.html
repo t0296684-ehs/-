@@ -1099,18 +1099,15 @@ let gcalEnabled=true;
 
 function makeGCalURL(task,deadline,note,priority){
   const base="https://calendar.google.com/calendar/render?action=TEMPLATE";
-  // Title: "待辦：事項名稱"，不含日期
   const title=encodeURIComponent("待辦："+task);
-  const details=encodeURIComponent((note?"備註："+note+"
-
-":"")+"由小恩系統記錄
-優先度："+({高:"🔴 高優先",中:"🟡 中優先",低:"⚪ 低優先"}[priority]||""));
+  const noteStr=note?"備註："+note+" ":"";
+  const priStr={高:"高優先",中:"中優先",低:"低優先"}[priority]||"";
+  const details=encodeURIComponent(noteStr+"由小恩系統記錄 優先度："+priStr);
   let url=base+"&text="+title+"&details="+details;
   if(deadline){
     const d=deadline.replace(/-/g,"");
     url+="&dates="+d+"T090000/"+d+"T100000";
   }
-  // Color: high=red(11), medium=orange(6), low=blue(9)
   const colorId={高:"11",中:"6",低:"9"}[priority]||"9";
   url+="&color="+colorId;
   return url;
@@ -1684,9 +1681,8 @@ async function saveClient(){
 //  CSV TEMPLATE DOWNLOAD
 // ══════════════════════════════════════════════════════════════
 function downloadCSVTemplate(){
-  const csv="公司名稱,聯絡人,電話,地址,Email,服務類別,合約到期日
-順昌工業股份有限公司,李小華,0933-222-111,桃園市中壢區環保路88號,service@sunchang.com,廢液,2025-12-31
-王老闆化工有限公司,王志明,02-2345-6789,新北市板橋區中山路100號,,廢水、廢液,2025-06-30";
+  const rows=["公司名稱,聯絡人,電話,地址,Email,服務類別,合約到期日","順昌工業股份有限公司,李小華,0933-222-111,桃園市中壢區環保路88號,service@sunchang.com,廢液,2025-12-31","王老闆化工有限公司,王志明,02-2345-6789,新北市板橋區中山路100號,,廢水、廢液,2025-06-30"];
+  const csv=rows.join("\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -1805,8 +1801,7 @@ async function markDone(id){
 }
 
 async function delItem(id){
-  if(!confirm("確定刪除這筆紀錄？
-（可在「歷史」頁面復原）"))return;
+  if(!confirm("確定刪除這筆紀錄？（可在歷史頁面復原）"))return;
   const t=local.todos.find(i=>i.id===id);if(!t)return;
   t.status="已刪除";t.deletedAt=fmtNow();
   saveLocal();updateBadge();renderList();
