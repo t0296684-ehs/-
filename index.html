@@ -1358,18 +1358,8 @@ function tiHtml(t){
     ${t.note?`<div class="ti-note">${t.note}</div>`:""}
   </div>`;
 }
-async function markDone(id){
-  const t=local.todos.find(i=>i.id===id);if(!t)return;
-  t.status="已完成";t.completedAt=fmtNow();saveLocal();updateBadge();renderList();
-  try{const r=await gPost({action:"completeTodo",token:session,id});if(r.success){t.elapsed=r.elapsed;saveLocal();}}catch{}
-  toast("✓ 已完成！","ok");
-}
-async function delItem(id){
-  if(!confirm("確定刪除這筆紀錄？"))return;
-  local.todos=local.todos.filter(i=>i.id!==id);saveLocal();updateBadge();renderList();
-  try{await gPost({action:"deleteTodo",token:session,id});}catch{}
-  toast("已刪除","ok");
-}
+
+
 
 // ══════════════════════════════════════════════════════════════
 //  CLIENTS
@@ -1379,35 +1369,9 @@ function rebuildClientSel(selId,selected){
   sel.innerHTML=`<option value="">（未指定）</option>`+local.clients.map(c=>`<option value="${c.companyName}" ${c.companyName===selected?"selected":""}>${c.companyName}</option>`).join("");
   if(selected&&!local.clients.find(c=>c.companyName===selected)){const opt=document.createElement("option");opt.value=opt.textContent=selected;sel.appendChild(opt);sel.value=selected;}
 }
-function toggleCC(){G("ccForm").classList.toggle("open");}
-async function saveClient(){
-  const name=V("nc_n"),phone=V("nc_ph"),contact=V("nc_c");
-  if(!name){toast("請填寫公司名稱","err");return;}
-  const addr=V("nc_addr");
-  const c={id:"C"+Date.now(),companyName:name,contactName:contact,phone,address:addr,categoryNote:V("nc_cat"),contractEnd:V("nc_exp"),synced:false};
-  local.clients.push(c);saveLocal();
-  try{const r=await gPost({action:"addClient",token:session,data:{companyName:name,contactName:contact,phone,address:addr,categoryNote:V("nc_cat"),contractEnd:V("nc_exp")}});if(r.success){local.clients[local.clients.length-1].synced=true;local.clients[local.clients.length-1].id=r.id;saveLocal();}}catch{}
-  G("ccForm").classList.remove("open");["nc_n","nc_c","nc_ph","nc_addr","nc_cat","nc_exp"].forEach(id=>S(id,""));
-  renderClients();toast("✓ 客戶已新增","ok");
-}
-function renderClients(){
-  rebuildClientSel("p_c","");rebuildClientSel("qa_c","");
-  const ct=G("clientCt");
-  if(!local.clients.length){ct.innerHTML=`<div class="empty"><div class="ei">◈</div><p>尚無客戶資料</p></div>`;return;}
-  ct.innerHTML=local.clients.map(c=>{
-    const ts=TODAY.toISOString().slice(0,10),exp=c.contractEnd;
-    const sc=!exp?"":exp<ts?"t-ovr":exp<new Date(TODAY.getTime()+14*86400000).toISOString().slice(0,10)?"t-m":"t-l";
-    const sl=!exp?"":exp<ts?"合約已過期":exp<new Date(TODAY.getTime()+14*86400000).toISOString().slice(0,10)?"即將到期":"合約有效";
-    const callHtml=c.phone?`<a class="call-btn" href="tel:${c.phone.replace(/[^0-9+]/g,"")}" style="display:inline-flex">📞 打給 ${c.contactName||"客戶"}</a>`:"";
-    const isIOSc=/iPad|iPhone|iPod/.test(navigator.userAgent);
-    const mapsBaseC=isIOSc?"https://maps.apple.com/?q=":"https://maps.google.com/?q=";
-    const cNavHtml=c.address?`<a class="nav-btn" href="${mapsBaseC}${encodeURIComponent(c.address)}" target="_blank" style="display:inline-flex">🗺 導航</a>`:"";
-    return `<div class="cc"><div class="cc-name">${c.companyName}</div>
-      <div class="cc-row">${c.contactName?`<span>👤 ${c.contactName}</span>`:""}${callHtml}${cNavHtml}</div>
-      <div class="cc-meta">${c.categoryNote?`<span class="tag t-cat">${c.categoryNote}</span>`:""}${exp?`<span class="tag ${sc}">${sl} ${exp}</span>`:""}</div>
-    </div>`;
-  }).join("");
-}
+
+
+
 function handleFile(e){
   const f=e.target.files[0];if(!f)return;
   if(!f.name.endsWith(".csv")){toast("目前僅支援 CSV 格式","err");return;}
@@ -1446,13 +1410,7 @@ async function submitFeedback(){
 // ══════════════════════════════════════════════════════════════
 //  SETTINGS
 // ══════════════════════════════════════════════════════════════
-function renderSettings(){
-  G("s-tot").textContent=local.todos.filter(t=>t.status==="待辦").length;
-  G("s-hi").textContent=local.todos.filter(t=>t.status==="待辦"&&t.priority==="高").length;
-  const m=TODAY.toISOString().slice(0,7);
-  G("s-done").textContent=local.todos.filter(t=>t.status==="已完成"&&(t.completedAt||"").slice(0,7)===m).length;
-  G("s-cli").textContent=local.clients.length;
-}
+
 
 function toggleSw(id){
   swState[id]=!swState[id];G(id).classList.toggle("on",swState[id]);
@@ -1894,9 +1852,12 @@ function renderAnalytics(){
 // ══════════════════════════════════════════════════════════════
 //  UPDATE renderSettings to call renderAnalytics
 // ══════════════════════════════════════════════════════════════
-const _origRenderSettings=renderSettings;
 function renderSettings(){
-  _origRenderSettings();
+  G("s-tot").textContent=local.todos.filter(t=>t.status==="待辦").length;
+  G("s-hi").textContent=local.todos.filter(t=>t.status==="待辦"&&t.priority==="高").length;
+  const m=TODAY.toISOString().slice(0,7);
+  G("s-done").textContent=local.todos.filter(t=>t.status==="已完成"&&(t.completedAt||"").slice(0,7)===m).length;
+  G("s-cli").textContent=local.clients.length;
   renderAnalytics();
 }
 
